@@ -1,0 +1,16 @@
+[package]
+name = "vm_bench"
+version = "0.1.0"
+edition = "2024"
+
+[[bench]]
+name = "computed_goto"
+harness = false
+
+[[bench]]
+name = "switch_based"
+harness = false
+
+[dependencies]
+smallvec = "1.0"
+criterion = "0.5"
