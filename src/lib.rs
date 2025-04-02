@@ -2,11 +2,6 @@ use smallvec::SmallVec;
 
 use std::ops::ControlFlow;
 
-pub trait Op {
-    fn execute(&self, context: &mut VmContext) -> ControlFlow<Exit>;
-    fn execute_nodispatch(&self, context: &mut VmContext) -> ControlFlow<Exit>;
-}
-
 macro_rules! dispatch {
     ($context:ident) => {{
         let inst = unsafe { $context.code.get_unchecked($context.ip) };
@@ -14,6 +9,12 @@ macro_rules! dispatch {
         (inst.execute)(&inst.opcode, $context)
     }}
 }
+
+pub trait Op {
+    fn execute(&self, context: &mut VmContext) -> ControlFlow<Exit>;
+    fn execute_nodispatch(&self, context: &mut VmContext) -> ControlFlow<Exit>;
+}
+
 
 #[derive(Copy, Clone)]
 pub struct Begin;
@@ -27,6 +28,7 @@ impl Op for Begin {
         ControlFlow::Continue(())
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct Nop;
 impl Op for Nop {
@@ -39,6 +41,7 @@ impl Op for Nop {
         ControlFlow::Continue(())
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct Stop;
 impl Op for Stop {
@@ -51,6 +54,7 @@ impl Op for Stop {
         ControlFlow::Break(Exit::Stop)
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct Push(u32);
 impl Op for Push {
@@ -65,6 +69,7 @@ impl Op for Push {
         ControlFlow::Continue(())
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct Add;
 impl Op for Add {
@@ -85,6 +90,7 @@ impl Op for Add {
         ControlFlow::Continue(())
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct Mul;
 impl Op for Mul {
@@ -105,6 +111,7 @@ impl Op for Mul {
         ControlFlow::Continue(())
     }
 }
+
 #[derive(Copy, Clone)]
 pub struct If {
     /// The offset of the instruction to jump to if the condition is true
@@ -163,6 +170,17 @@ pub union Opcode {
     mul: Mul,
 }
 
+macro_rules! opcode_impl {
+    ($($opcode:ident),*) => {
+        $(
+            #[inline(never)]
+            pub fn $opcode(&self, context: &mut VmContext) -> ControlFlow<Exit> {
+                unsafe { self.$opcode }.execute(context)
+            }
+        )*
+    }
+}
+
 impl Opcode {
     pub fn compile(inst: Inst) -> CompiledInst {
         match inst {
@@ -197,41 +215,9 @@ impl Opcode {
         }
     }
     
-    #[inline(never)]
-    pub fn begin(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.begin }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn nop(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.nop }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn stop(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.stop }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn push(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.push }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn r#if(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.r#if }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn add(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.add }.execute(context)
-    }
-    
-    #[inline(never)]
-    pub fn mul(&self, context: &mut VmContext) -> ControlFlow<Exit> {
-        unsafe { self.mul }.execute(context)
-    }
+    opcode_impl!(begin, nop, stop, push, r#if, add, mul);
 }
+
 
 pub struct SystemError;
 
